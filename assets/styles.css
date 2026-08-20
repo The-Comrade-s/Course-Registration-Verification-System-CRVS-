@@ -1,0 +1,266 @@
+/*
+  CRVS design system.
+  Institutional, formal, restrained. Deep blue primary accent, off-white
+  light theme, near-black dark theme. No gradients, no decorative clutter,
+  no emoji-based iconography anywhere.
+*/
+
+/*
+  Theme variable values are injected at runtime by utils/theme.py as an
+  inline :root block placed immediately before this stylesheet, so the
+  rules below only ever reference var(--crvs-*) and never hard-code a
+  palette themselves.
+*/
+
+html, body, [class^="css"] {
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+}
+
+.stApp {
+    background-color: var(--crvs-bg);
+    color: var(--crvs-text-primary);
+}
+
+/* Page header */
+.crvs-page-header h1 {
+    color: var(--crvs-text-primary);
+    font-weight: 600;
+    font-size: 1.65rem;
+    margin-bottom: 0.15rem;
+    border-bottom: 2px solid var(--crvs-primary);
+    padding-bottom: 0.5rem;
+}
+
+.crvs-page-subtitle {
+    color: var(--crvs-text-secondary);
+    font-size: 0.95rem;
+    margin-top: 0;
+    margin-bottom: 1rem;
+}
+
+.crvs-section-header {
+    color: var(--crvs-text-primary);
+    font-weight: 600;
+    font-size: 1.1rem;
+    margin: 1.25rem 0 0.6rem 0;
+    padding-bottom: 0.3rem;
+    border-bottom: 1px solid var(--crvs-border);
+}
+
+/* Sidebar */
+section[data-testid="stSidebar"] {
+    background-color: var(--crvs-surface);
+    border-right: 1px solid var(--crvs-border);
+}
+
+.crvs-sidebar-identity {
+    color: var(--crvs-text-secondary);
+    font-size: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--crvs-border);
+    margin-top: 0.75rem;
+}
+
+/* Metric cards */
+.crvs-metric-card {
+    background-color: var(--crvs-surface);
+    border: 1px solid var(--crvs-border);
+    border-left: 4px solid var(--crvs-primary);
+    border-radius: 6px;
+    padding: 0.9rem 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.crvs-metric-label {
+    color: var(--crvs-text-secondary);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.crvs-metric-value {
+    color: var(--crvs-text-primary);
+    font-size: 1.6rem;
+    font-weight: 700;
+    margin-top: 0.2rem;
+}
+
+.crvs-metric-footnote {
+    color: var(--crvs-text-secondary);
+    font-size: 0.75rem;
+    margin-top: 0.2rem;
+}
+
+/* Info card */
+.crvs-info-card {
+    background-color: var(--crvs-surface);
+    border: 1px solid var(--crvs-border);
+    border-radius: 6px;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.crvs-info-card-title {
+    color: var(--crvs-text-primary);
+    font-weight: 600;
+    margin-bottom: 0.35rem;
+}
+
+.crvs-info-card-body {
+    color: var(--crvs-text-secondary);
+    font-size: 0.92rem;
+}
+
+/* Status badges */
+.crvs-badge {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+.crvs-badge-success { background-color: var(--crvs-success-bg); color: var(--crvs-success-text); }
+.crvs-badge-warning { background-color: var(--crvs-warning-bg); color: var(--crvs-warning-text); }
+.crvs-badge-error   { background-color: var(--crvs-error-bg); color: var(--crvs-error-text); }
+.crvs-badge-neutral { background-color: var(--crvs-neutral-bg); color: var(--crvs-neutral-text); }
+
+/* Alerts */
+.crvs-alert {
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.75rem;
+    font-size: 0.92rem;
+    border: 1px solid var(--crvs-border);
+}
+
+.crvs-alert-success { background-color: var(--crvs-success-bg); color: var(--crvs-success-text); }
+.crvs-alert-warning { background-color: var(--crvs-warning-bg); color: var(--crvs-warning-text); }
+.crvs-alert-error   { background-color: var(--crvs-error-bg); color: var(--crvs-error-text); }
+
+/* Empty states */
+.crvs-empty-state {
+    text-align: center;
+    color: var(--crvs-text-secondary);
+    background-color: var(--crvs-surface);
+    border: 1px dashed var(--crvs-border);
+    border-radius: 6px;
+    padding: 2rem 1rem;
+    font-size: 0.92rem;
+}
+
+/* Buttons */
+.stButton > button {
+    background-color: var(--crvs-primary);
+    color: #ffffff;
+    border: none;
+    border-radius: 4px;
+    font-weight: 600;
+    padding: 0.45rem 1.1rem;
+}
+
+.stButton > button:hover {
+    background-color: var(--crvs-primary-hover);
+    color: #ffffff;
+}
+
+/* Tables */
+[data-testid="stDataFrame"] {
+    border: 1px solid var(--crvs-border);
+    border-radius: 6px;
+}
+
+/* Theme-aware HTML table (used instead of st.dataframe, which follows
+   Streamlit's own built-in theme rather than these variables) */
+.crvs-table-wrapper {
+    overflow-x: auto;
+    border: 1px solid var(--crvs-border);
+    border-radius: 6px;
+    margin-bottom: 0.75rem;
+}
+
+.crvs-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+}
+
+.crvs-table thead th {
+    background-color: var(--crvs-neutral-bg);
+    color: var(--crvs-text-primary);
+    text-align: left;
+    padding: 0.55rem 0.75rem;
+    font-weight: 600;
+    border-bottom: 1px solid var(--crvs-border);
+    white-space: nowrap;
+}
+
+.crvs-table tbody td {
+    color: var(--crvs-text-primary);
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--crvs-border);
+    background-color: var(--crvs-surface);
+}
+
+.crvs-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* Inputs */
+input, textarea, select {
+    border-radius: 4px !important;
+}
+
+/*
+   Broad text-color enforcement for Streamlit's own native elements.
+   Streamlit ships a light-theme default for widget labels, captions,
+   markdown text, tables (st.table), radio/checkbox text, and sidebar
+   content. Our custom :root variables above only reach elements we've
+   explicitly classed, so without this block, native text stays dark
+   and becomes unreadable against the dark theme's near-black background.
+*/
+.stApp,
+.stApp p,
+.stApp span,
+.stApp label,
+.stApp li,
+.stMarkdown,
+.stCaption,
+.stText,
+[data-testid="stMarkdownContainer"],
+[data-testid="stWidgetLabel"],
+[data-testid="stMetricValue"],
+[data-testid="stMetricLabel"],
+[data-testid="stTable"],
+[data-testid="stTable"] td,
+[data-testid="stTable"] th,
+section[data-testid="stSidebar"] *,
+.stRadio label,
+.stCheckbox label,
+.stSelectbox label,
+.stTextInput label,
+.stTextArea label,
+.stNumberInput label,
+.stDateInput label {
+    color: var(--crvs-text-primary) !important;
+}
+
+.stApp [data-baseweb="tab"] {
+    color: var(--crvs-text-secondary) !important;
+}
+
+.stApp [data-baseweb="tab"][aria-selected="true"] {
+    color: var(--crvs-primary) !important;
+}
+
+/* Inputs need their own background/text pairing, not just text color,
+   or dark-mode text can end up dark-on-dark inside the input box itself. */
+.stTextInput input,
+.stTextArea textarea,
+.stNumberInput input,
+.stDateInput input,
+.stSelectbox [data-baseweb="select"] > div {
+    background-color: var(--crvs-surface) !important;
+    color: var(--crvs-text-primary) !important;
+    border-color: var(--crvs-border) !important;
+}
