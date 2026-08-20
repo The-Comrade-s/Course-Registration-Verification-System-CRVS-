@@ -55,7 +55,7 @@ def _logged_in_admin_test():
 
 
 def _goto_administration_section(at, section: str):
-    at.radio[0].set_value("Administration").run()
+    [r for r in at.radio if r.label == "Navigation"][0].set_value("Administration").run()
     admin_section_radio = [r for r in at.radio if r.label == "Administration Section"][0]
     admin_section_radio.set_value(section).run()
     return at
@@ -114,7 +114,7 @@ class TestCreateFormsActuallyPersist(unittest.TestCase):
 
     def test_programme_creation_persists(self):
         at = _logged_in_admin_test()
-        at.radio[0].set_value("Programmes").run()
+        [r for r in at.radio if r.label == "Navigation"][0].set_value("Programmes").run()
         name = f"Test Programme {uuid.uuid4().hex[:6]}"
         code = f"TP{uuid.uuid4().hex[:5].upper()}"
         name_input = [t for t in at.text_input if t.label == "Programme Name"][0]
@@ -132,7 +132,7 @@ class TestCreateFormsActuallyPersist(unittest.TestCase):
 
     def test_course_creation_persists(self):
         at = _logged_in_admin_test()
-        at.radio[0].set_value("Courses").run()
+        [r for r in at.radio if r.label == "Navigation"][0].set_value("Courses").run()
         code = f"TC{uuid.uuid4().hex[:5].upper()}"
         code_input = [t for t in at.text_input if "Course Code" in t.label][0]
         title_input = [t for t in at.text_input if t.label == "Course Title"][0]
@@ -146,6 +146,89 @@ class TestCreateFormsActuallyPersist(unittest.TestCase):
         with session_scope() as session:
             found = session.query(Course).filter(Course.code == code).one_or_none()
         self.assertIsNotNone(found, "Course was not actually committed to the database")
+
+
+class TestStaffCreationDoesNotCrashOnReusedOfficer(unittest.TestCase):
+    """
+    Regression test: the Staff tab's officer dropdown used to offer every
+    Academic Officer account regardless of whether they already had a
+    Staff record. Since Staff.user_id is one-to-one, re-selecting an
+    already-assigned officer raised an uncaught IntegrityError, which
+    surfaced to the user as a generic "unexpected error" with no
+    indication of what went wrong or how to fix it.
+    """
+
+    def test_dropdown_excludes_already_assigned_officers_and_new_ones_appear(self):
+        at = _logged_in_admin_test()
+        _goto_administration_section(at, "Staff")
+
+        # With every seeded officer already assigned, the dropdown should
+        # not be offered at all -- it should explain why instead of
+        # crashing when the admin tries anyway.
+        staff_dropdowns = [s for s in at.selectbox if s.label == "User Account"]
+        self.assertEqual(staff_dropdowns, [], "Dropdown should not appear when every officer is already assigned")
+        guidance = " ".join(c.value for c in at.caption)
+        self.assertIn("already has a staff record", guidance)
+
+        # Create a fresh Academic Officer user; they should become
+        # selectable, and creating their staff record should succeed
+        # without any exception.
+        _goto_administration_section(at, "Users")
+        email = f"officer-{uuid.uuid4().hex[:8]}@crvs.local"
+        [t for t in at.text_input if t.label == "Full Name"][0].input("New Officer").run()
+        [t for t in at.text_input if t.label == "Email"][0].input(email).run()
+        [s for s in at.selectbox if s.label == "Role"][0].set_value("Academic Officer").run()
+        [t for t in at.text_input if t.label == "Initial Password"][0].input("SecurePass123!").run()
+        [b for b in at.button if b.label == "Create User"][0].click().run()
+        self.assertFalse(bool(at.exception), f"Unexpected exception creating user: {at.exception}")
+
+        _goto_administration_section(at, "Staff")
+        staff_dropdowns = [s for s in at.selectbox if s.label == "User Account"]
+        self.assertIn("New Officer", staff_dropdowns[0].options)
+
+        staff_id = f"STF{uuid.uuid4().hex[:5].upper()}"
+        [t for t in at.text_input if t.label == "Staff ID"][0].input(staff_id).run()
+        [b for b in at.button if b.label == "Create Staff Record"][0].click().run()
+        self.assertFalse(bool(at.exception), f"Unexpected exception creating staff: {at.exception}")
+
+        from database.models import Staff
+        with session_scope() as session:
+            found = session.query(Staff).filter(Staff.staff_id == staff_id).one_or_none()
+        self.assertIsNotNone(found, "Staff record was not actually committed to the database")
+
+
+class TestStudentRegistrationPageDoesNotCrash(unittest.TestCase):
+    """
+    Regression test: SQLAlchemy expires ORM object attributes once a
+    session commits, so any object read inside a `with session_scope()`
+    block and then used after that block closes raises
+    DetachedInstanceError. This previously crashed the entire student
+    Course Registration page (current_session.name / current_semester.name
+    were accessed after the session closed), and would also have crashed
+    the moment a student clicked "Add" on any course.
+    """
+
+    def test_registration_page_loads_and_add_course_works(self):
+        from streamlit.testing.v1 import AppTest
+
+        at = AppTest.from_file(
+            os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "app.py"),
+            default_timeout=30,
+        )
+        at.run()
+        at.text_input[0].input("student1@crvs.local").run()
+        at.text_input[1].input("ChangeMe123!").run()
+        at.button[0].click().run()
+        [r for r in at.radio if r.label == "Navigation"][0].set_value("Course Registration").run()
+
+        self.assertFalse(bool(at.exception), f"Unexpected exception loading registration page: {at.exception}")
+        error_shown = any("unexpected error" in md.value.lower() for md in at.markdown)
+        self.assertFalse(error_shown, "Registration page showed an error instead of rendering")
+
+        add_buttons = [b for b in at.button if b.label == "Add"]
+        self.assertTrue(add_buttons, "Expected at least one available course with an Add button")
+        add_buttons[0].click().run()
+        self.assertFalse(bool(at.exception), f"Unexpected exception adding a course: {at.exception}")
 
 
 if __name__ == "__main__":
