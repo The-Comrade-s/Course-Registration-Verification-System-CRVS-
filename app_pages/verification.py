@@ -22,7 +22,7 @@ from auth.authorization import (
 )
 from database.connection import session_scope
 from database.models import IssueSeverity, Registration, RegistrationStatus, VerificationResult
-from services import approval_service, verification_engine
+from services import approval_service, report_service, verification_engine
 from utils.error_handling import safe_page
 from utils.helpers import format_datetime
 from utils.ui_components import data_table, empty_state, error_message, page_header, section_header, status_badge, success_message
@@ -88,9 +88,20 @@ def _render_student_view() -> None:
                 ],
             }
         registration_status = latest.status.value
+        latest_registration_id = latest.id
 
     section_header("Latest Registration")
     st.markdown(status_badge(registration_status, "warning" if registration_status != "Approved" else "success"), unsafe_allow_html=True)
+
+    with session_scope() as session:
+        slip_pdf = report_service.generate_registration_slip_pdf(session, latest_registration_id)
+    st.download_button(
+        "Download Registration Slip (PDF)",
+        data=slip_pdf,
+        file_name="course_registration_slip.pdf",
+        mime="application/pdf",
+    )
+    st.caption("Print this slip and submit it to your department/HOD office as required.")
 
     if result_data is None:
         empty_state("Verification has not yet run for this registration.")

@@ -13,8 +13,8 @@ import streamlit as st
 
 from auth.authorization import ACADEMIC_OFFICER, ADMINISTRATOR, STUDENT, current_student_id, get_current_role, require_authentication
 from database.connection import session_scope
-from database.models import AcademicSession, Registration, RegistrationStatus, Semester, Student
-from services import registration_service
+from database.models import AcademicSession, Course, Registration, RegistrationStatus, Semester, Student
+from services import registration_service, report_service
 from utils.error_handling import safe_page
 from utils.ui_components import data_table, empty_state, error_message, page_header, section_header, status_badge, success_message
 
@@ -63,10 +63,25 @@ def _render_student_view() -> None:
             empty_state("No semester is currently marked as active. Contact an administrator.")
             return
 
-        registration = registration_service.get_or_create_draft(session, student.id, current_session.id, current_semester.id)
+        # Every value needed below is extracted into plain Python types here,
+        # while the session is still open. SQLAlchemy expires ORM object
+        # attributes once the session commits/closes, so holding onto the
+        # objects themselves (current_session, current_semester, the Course
+        # rows, etc.) and reading their attributes after this block ends
+        # raises DetachedInstanceError -- this was the exact cause of the
+        # "unexpected error" previously seen on this page.
+        session_name = current_session.name
+        session_id = current_session.id
+        semester_name = current_semester.name
+        semester_id = current_semester.id
+
+        registration = registration_service.get_or_create_draft(session, student.id, session_id, semester_id)
         registration_id = registration.id
         status = registration.status
-        available_courses = registration_service.get_available_courses(session, student, current_session.id, current_semester.id)
+        available_courses = [
+            {"id": c.id, "code": c.code, "title": c.title, "credit_units": c.credit_units}
+            for c in registration_service.get_available_courses(session, student, session_id, semester_id)
+        ]
         selected_course_ids = {rc.course_id for rc in registration.courses}
         selected_rows = [
             {"Code": rc.course.code, "Title": rc.course.title, "Units": rc.credit_units}
@@ -74,7 +89,7 @@ def _render_student_view() -> None:
         ]
         total_units = sum(rc.credit_units for rc in registration.courses)
 
-    st.caption(f"Session: {current_session.name}  |  Semester: {current_semester.name}")
+    st.caption(f"Session: {session_name}  |  Semester: {semester_name}")
     st.markdown(status_badge(status.value, _STATUS_SEVERITY.get(status, "neutral")), unsafe_allow_html=True)
 
     if status not in (RegistrationStatus.DRAFT, RegistrationStatus.REQUIRES_CORRECTION):
@@ -82,6 +97,15 @@ def _render_student_view() -> None:
         if selected_rows:
             data_table(selected_rows)
         st.caption(f"Total Units: {total_units}")
+        with session_scope() as session:
+            slip_pdf = report_service.generate_registration_slip_pdf(session, registration_id)
+        st.download_button(
+            "Download Registration Slip (PDF)",
+            data=slip_pdf,
+            file_name="course_registration_slip.pdf",
+            mime="application/pdf",
+        )
+        st.caption("Print this slip and submit it to your department/HOD office as required.")
         empty_state("This registration has already been submitted and can no longer be edited here.")
         return
 
@@ -92,24 +116,29 @@ def _render_student_view() -> None:
 
     search = st.text_input("Search by course code or title", key="course_search")
     for course in available_courses:
-        if search and search.lower() not in course.code.lower() and search.lower() not in course.title.lower():
+        if search and search.lower() not in course["code"].lower() and search.lower() not in course["title"].lower():
             continue
         col1, col2 = st.columns([4, 1])
         with col1:
-            st.markdown(f"**{course.code}** &mdash; {course.title} ({course.credit_units} units)")
+            st.markdown(f"**{course['code']}** &mdash; {course['title']} ({course['credit_units']} units)")
         with col2:
-            if course.id in selected_course_ids:
-                if st.button("Remove", key=f"remove_{course.id}"):
+            if course["id"] in selected_course_ids:
+                if st.button("Remove", key=f"remove_{course['id']}"):
                     with session_scope() as session:
                         reg = session.get(Registration, registration_id)
-                        registration_service.remove_course(session, reg, course.id)
+                        registration_service.remove_course(session, reg, course["id"])
                     st.rerun()
             else:
-                if st.button("Add", key=f"add_{course.id}"):
+                if st.button("Add", key=f"add_{course['id']}"):
                     with session_scope() as session:
                         reg = session.get(Registration, registration_id)
+                        # Re-fetch the course fresh within this session rather
+                        # than reusing the dict/object from the earlier,
+                        # now-closed session -- add_course() needs a live,
+                        # session-bound Course instance.
+                        course_obj = session.get(Course, course["id"])
                         try:
-                            registration_service.add_course(session, reg, course)
+                            registration_service.add_course(session, reg, course_obj)
                         except registration_service.RegistrationError as exc:
                             error_message(str(exc))
                     st.rerun()

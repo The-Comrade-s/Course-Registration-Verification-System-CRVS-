@@ -150,10 +150,19 @@ def _render_staff_tab() -> None:
             }
             for s in staff_members
         ]
+        # Only offer Academic Officer accounts that don't already have a
+        # Staff record -- Staff.user_id is one-to-one, so re-selecting an
+        # officer who's already staff would fail with a database error.
+        # Previously the dropdown showed every officer regardless, so once
+        # the only officer account had a staff record, every subsequent
+        # "create staff" attempt failed with no clear explanation.
+        assigned_officer_ids = {s.user_id for s in staff_members}
         officer_users = {
             u.full_name: u.id
             for u in session.query(User).filter(User.role == UserRole.ACADEMIC_OFFICER).all()
+            if u.id not in assigned_officer_ids
         }
+        total_officer_count = session.query(User).filter(User.role == UserRole.ACADEMIC_OFFICER).count()
         department_options = {d.name: d.id for d in session.query(Department).order_by(Department.name).all()}
 
     if rows:
@@ -161,8 +170,24 @@ def _render_staff_tab() -> None:
     else:
         empty_state("No staff records found.")
 
-    if not (officer_users and department_options):
-        st.caption("Create an Academic Officer user and a department first.")
+    if not department_options:
+        st.caption("Create a department first, from the Departments section.")
+        return
+
+    if not officer_users:
+        if total_officer_count == 0:
+            st.caption(
+                "No Academic Officer accounts exist yet. Create one from the Users "
+                "section (role: Academic Officer), then return here to assign them "
+                "a staff record."
+            )
+        else:
+            st.caption(
+                "Every existing Academic Officer account already has a staff record. "
+                "To add a new staff member, first create a new user with the "
+                "Academic Officer role from the Users section, then assign them "
+                "here."
+            )
         return
 
     with st.form("create_staff_form", clear_on_submit=True):
@@ -177,12 +202,16 @@ def _render_staff_tab() -> None:
         else:
             created = False
             with session_scope() as session:
-                if session.query(Staff).filter(Staff.staff_id == staff_id.strip().upper()).one_or_none():
+                normalized_staff_id = staff_id.strip().upper()
+                target_user_id = officer_users[user_name]
+                if session.query(Staff).filter(Staff.staff_id == normalized_staff_id).one_or_none():
                     error_message("A staff record with this ID already exists.")
+                elif session.query(Staff).filter(Staff.user_id == target_user_id).one_or_none():
+                    error_message(f"'{user_name}' already has a staff record.")
                 else:
                     staff = Staff(
-                        staff_id=staff_id.strip().upper(),
-                        user_id=officer_users[user_name],
+                        staff_id=normalized_staff_id,
+                        user_id=target_user_id,
                         department_id=department_options[department_name],
                     )
                     session.add(staff)
